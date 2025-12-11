@@ -1,143 +1,415 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, Loader2 } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI CV Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-export default function CVGenerator() {
-  const [cvInput, setCvInput] = useState('');
-  const [generatedHTML, setGeneratedHTML] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState('');
-  const [error, setError] = useState('');
+        body {
+            font-family: 'Arial', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #1a1a2e;
+        }
 
-  // Generate or retrieve session ID
-  useEffect(() => {
-    let id = sessionStorage.getItem('cv_session_id');
-    if (!id) {
-      id = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      sessionStorage.setItem('cv_session_id', id);
-    }
-    setSessionId(id);
-  }, []);
+        .main-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
 
-  const handleGenerate = async () => {
-    if (!cvInput.trim()) {
-      setError('Please enter CV details before generating');
-      return;
-    }
+        /* Left Section Styles */
+        .left-panel {
+            width: 50%;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            color: white;
+        }
 
-    setIsLoading(true);
-    setError('');
+        .title-section {
+            margin-bottom: 30px;
+        }
 
-    try {
-      // Replace this URL with your n8n webhook URL
-      const webhookURL = 'YOUR_N8N_WEBHOOK_URL_HERE';
-      
-      const response = await fetch(webhookURL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId: sessionId,
-          cvData: cvInput,
-          timestamp: new Date().toISOString()
-        })
-      });
+        .main-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        .session-display {
+            background: rgba(255,255,255,0.15);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            display: inline-block;
+            backdrop-filter: blur(10px);
+        }
 
-      const data = await response.json();
-      
-      // Assuming the webhook returns { html: "..." } or { cvHtml: "..." }
-      const htmlContent = data.html || data.cvHtml || data.content || '';
-      
-      if (htmlContent) {
-        setGeneratedHTML(htmlContent);
-      } else {
-        setError('No HTML content received from the AI agent');
-      }
-    } catch (err) {
-      setError(`Failed to generate CV: ${err.message}`);
-      console.error('Error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        .input-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255,255,255,0.1);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
 
-  return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Left Section - Input */}
-      <div className="w-1/2 p-8 bg-white border-r border-gray-200 flex flex-col">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">AI CV Generator</h1>
-          <p className="text-sm text-gray-500">Session ID: {sessionId}</p>
-        </div>
+        .input-label {
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
 
-        <div className="flex-1 flex flex-col">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Enter CV Details
-          </label>
-          <textarea
-            value={cvInput}
-            onChange={(e) => setCvInput(e.target.value)}
-            placeholder="Enter your CV information here...&#10;&#10;Example:&#10;Name: John Doe&#10;Email: john@example.com&#10;Experience: 5 years in software development&#10;Skills: React, Node.js, Python&#10;..."
-            className="flex-1 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
+        #cvTextarea {
+            flex: 1;
+            background: rgba(255,255,255,0.95);
+            border: none;
+            border-radius: 10px;
+            padding: 18px;
+            font-size: 1em;
+            color: #333;
+            resize: none;
+            outline: none;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+        }
 
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
+        #cvTextarea::placeholder {
+            color: #888;
+        }
+
+        .error-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255,100,100,0.2);
+            border-left: 4px solid #ff6b6b;
+            border-radius: 5px;
+            color: #ffcccc;
+            display: none;
+            font-size: 0.95em;
+        }
+
+        .error-box.visible {
+            display: block;
+        }
+
+        .submit-button {
+            margin-top: 20px;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.15em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+        }
+
+        .submit-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: rotate 0.8s linear infinite;
+        }
+
+        @keyframes rotate {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Right Section Styles */
+        .right-panel {
+            width: 50%;
+            background: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-top {
+            background: white;
+            padding: 25px 35px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #667eea;
+        }
+
+        .preview-title {
+            font-size: 2em;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .preview-body {
+            flex: 1;
+            padding: 25px;
+            overflow: auto;
+            background: #e8e8e8;
+        }
+
+        .placeholder {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .placeholder-content {
+            color: #999;
+        }
+
+        .placeholder-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            opacity: 0.4;
+        }
+
+        .placeholder-text {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .placeholder-hint {
+            font-size: 0.95em;
+            color: #aaa;
+        }
+
+        #cvPreview {
+            width: 100%;
+            height: 100%;
+            min-height: 900px;
+            background: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.15);
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        /* Scrollbar Styling */
+        .preview-body::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .preview-body::-webkit-scrollbar-track {
+            background: #ddd;
+        }
+
+        .preview-body::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+
+        .preview-body::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- LEFT SECTION -->
+        <div class="left-panel">
+            <div class="title-section">
+                <h1 class="main-title">AI CV Generator</h1>
+                <div class="session-display">
+                    Session ID: <strong id="sessionIdDisplay">Initializing...</strong>
+                </div>
             </div>
-          )}
 
-          <button
-            onClick={handleGenerate}
-            disabled={isLoading}
-            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="animate-spin" size={20} />
-                Generating CV...
-              </>
-            ) : (
-              <>
-                <FileText size={20} />
-                Generate CV
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+            <div class="input-section">
+                <label class="input-label" for="cvTextarea">Enter Your CV Information:</label>
+                <textarea 
+                    id="cvTextarea" 
+                    placeholder="Enter your CV details here...
 
-      {/* Right Section - Preview */}
-      <div className="w-1/2 bg-gray-50 overflow-hidden flex flex-col">
-        <div className="p-6 bg-white border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">CV Preview</h2>
-        </div>
-        
-        <div className="flex-1 overflow-auto p-6">
-          {generatedHTML ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-full">
-              <iframe
-                srcDoc={generatedHTML}
-                title="CV Preview"
-                className="w-full h-full min-h-screen border-0"
-                sandbox="allow-same-origin"
-              />
+Example:
+Name: Jane Smith
+Email: jane.smith@email.com
+Phone: +1 555-0123
+LinkedIn: linkedin.com/in/janesmith
+
+SUMMARY:
+Experienced software engineer with 5+ years in full-stack development...
+
+EXPERIENCE:
+Senior Developer at Tech Corp (2020-Present)
+- Led development of microservices architecture
+- Managed team of 5 developers
+
+SKILLS:
+JavaScript, Python, React, Node.js, AWS, Docker
+
+EDUCATION:
+BS Computer Science, University of Technology (2018)"></textarea>
+
+                <div id="errorDisplay" class="error-box"></div>
+
+                <button class="submit-button" id="generateButton" onclick="triggerCVGeneration()">
+                    <span id="buttonIcon">🚀</span>
+                    <span id="buttonText">Generate CV</span>
+                </button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-400">
-                <FileText size={64} className="mx-auto mb-4 opacity-50" />
-                <p className="text-lg">Your generated CV will appear here</p>
-                <p className="text-sm mt-2">Fill in the details and click "Generate CV"</p>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+
+        <!-- RIGHT SECTION -->
+        <div class="right-panel">
+            <div class="preview-top">
+                <h2 class="preview-title">CV Preview</h2>
+            </div>
+
+            <div class="preview-body">
+                <div id="placeholderView" class="placeholder">
+                    <div class="placeholder-content">
+                        <div class="placeholder-icon">📄</div>
+                        <p class="placeholder-text">Your AI-Generated CV Will Appear Here</p>
+                        <p class="placeholder-hint">Fill in your details on the left and click Generate CV</p>
+                    </div>
+                </div>
+
+                <iframe id="cvPreview" class="hide" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+            </div>
+        </div>
     </div>
-  );
-}
+
+    <script>
+        // Initialize Session ID
+        let currentSessionId = sessionStorage.getItem('cv_session_id');
+        if (!currentSessionId) {
+            currentSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('cv_session_id', currentSessionId);
+        }
+        document.getElementById('sessionIdDisplay').textContent = currentSessionId;
+
+        // Display error message
+        function displayError(message) {
+            const errorBox = document.getElementById('errorDisplay');
+            errorBox.textContent = message;
+            errorBox.classList.add('visible');
+        }
+
+        // Clear error message
+        function clearError() {
+            const errorBox = document.getElementById('errorDisplay');
+            errorBox.classList.remove('visible');
+        }
+
+        // Toggle loading state
+        function toggleLoading(isLoading) {
+            const button = document.getElementById('generateButton');
+            const buttonIcon = document.getElementById('buttonIcon');
+            const buttonText = document.getElementById('buttonText');
+
+            if (isLoading) {
+                button.disabled = true;
+                buttonIcon.innerHTML = '<div class="spinner"></div>';
+                buttonText.textContent = 'Generating Your CV...';
+            } else {
+                button.disabled = false;
+                buttonIcon.textContent = '🚀';
+                buttonText.textContent = 'Generate CV';
+            }
+        }
+
+        // Main function to generate CV
+        async function triggerCVGeneration() {
+            const textareaValue = document.getElementById('cvTextarea').value.trim();
+
+            // Validation
+            if (!textareaValue) {
+                displayError('Please enter your CV information before generating!');
+                return;
+            }
+
+            clearError();
+            toggleLoading(true);
+
+            try {
+                // REPLACE THIS WITH YOUR N8N WEBHOOK URL
+                const n8nWebhookUrl = 'YOUR_N8N_WEBHOOK_URL_HERE';
+
+                // Make POST request to webhook
+                const response = await fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        cvData: textareaValue,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                // Check response status
+                if (!response.ok) {
+                    throw new Error(`HTTP Error! Status: ${response.status}`);
+                }
+
+                // Parse JSON response
+                const responseData = await response.json();
+
+                // Extract HTML from response (supports multiple field names)
+                const cvHtmlContent = responseData.html || responseData.cvHtml || responseData.content || responseData.output || '';
+
+                if (cvHtmlContent) {
+                    // Hide placeholder and show iframe
+                    document.getElementById('placeholderView').classList.add('hide');
+                    const iframe = document.getElementById('cvPreview');
+                    iframe.classList.remove('hide');
+                    iframe.srcdoc = cvHtmlContent;
+                } else {
+                    displayError('The AI agent did not return any HTML content. Please try again.');
+                }
+
+            } catch (error) {
+                displayError('Error generating CV: ' + error.message);
+                console.error('CV Generation Error:', error);
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // Keyboard shortcut: Ctrl+Enter to generate
+        document.getElementById('cvTextarea').addEventListener('keydown', function(event) {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                triggerCVGeneration();
+            }
+        });
+    </script>
+</body>
+</html>
