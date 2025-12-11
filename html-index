@@ -1,0 +1,143 @@
+import React, { useState, useEffect } from 'react';
+import { FileText, Loader2 } from 'lucide-react';
+
+export default function CVGenerator() {
+  const [cvInput, setCvInput] = useState('');
+  const [generatedHTML, setGeneratedHTML] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState('');
+  const [error, setError] = useState('');
+
+  // Generate or retrieve session ID
+  useEffect(() => {
+    let id = sessionStorage.getItem('cv_session_id');
+    if (!id) {
+      id = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem('cv_session_id', id);
+    }
+    setSessionId(id);
+  }, []);
+
+  const handleGenerate = async () => {
+    if (!cvInput.trim()) {
+      setError('Please enter CV details before generating');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Replace this URL with your n8n webhook URL
+      const webhookURL = 'YOUR_N8N_WEBHOOK_URL_HERE';
+      
+      const response = await fetch(webhookURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          cvData: cvInput,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Assuming the webhook returns { html: "..." } or { cvHtml: "..." }
+      const htmlContent = data.html || data.cvHtml || data.content || '';
+      
+      if (htmlContent) {
+        setGeneratedHTML(htmlContent);
+      } else {
+        setError('No HTML content received from the AI agent');
+      }
+    } catch (err) {
+      setError(`Failed to generate CV: ${err.message}`);
+      console.error('Error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Left Section - Input */}
+      <div className="w-1/2 p-8 bg-white border-r border-gray-200 flex flex-col">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">AI CV Generator</h1>
+          <p className="text-sm text-gray-500">Session ID: {sessionId}</p>
+        </div>
+
+        <div className="flex-1 flex flex-col">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Enter CV Details
+          </label>
+          <textarea
+            value={cvInput}
+            onChange={(e) => setCvInput(e.target.value)}
+            placeholder="Enter your CV information here...&#10;&#10;Example:&#10;Name: John Doe&#10;Email: john@example.com&#10;Experience: 5 years in software development&#10;Skills: React, Node.js, Python&#10;..."
+            className="flex-1 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={handleGenerate}
+            disabled={isLoading}
+            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Generating CV...
+              </>
+            ) : (
+              <>
+                <FileText size={20} />
+                Generate CV
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Right Section - Preview */}
+      <div className="w-1/2 bg-gray-50 overflow-hidden flex flex-col">
+        <div className="p-6 bg-white border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800">CV Preview</h2>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-6">
+          {generatedHTML ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-full">
+              <iframe
+                srcDoc={generatedHTML}
+                title="CV Preview"
+                className="w-full h-full min-h-screen border-0"
+                sandbox="allow-same-origin"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-400">
+                <FileText size={64} className="mx-auto mb-4 opacity-50" />
+                <p className="text-lg">Your generated CV will appear here</p>
+                <p className="text-sm mt-2">Fill in the details and click "Generate CV"</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
